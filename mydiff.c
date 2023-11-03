@@ -6,6 +6,10 @@
 #include <stdbool.h>
 #include <ctype.h>
 
+// TODO: Kommentare schreiben (Doxygen Style)
+// TODO: bei prints ".txt" entfernen
+
+
 static const int num_of_args = 3;
 static const char *program_name;
 static bool case_insensitive = false;
@@ -19,6 +23,9 @@ static void try_open_file(FILE **file, const char *file_path, char *mode);
 static void work(FILE *input1, FILE *input2, FILE *output);
 static void print_diff(int lin, int chr, FILE *output);
 static int is_eof_or_newline(char c1, char c2);
+static int is_c_eof_or_newline(char c);
+static char skip_to_next_char(FILE *file);
+static void close(FILE *file);
 
 int main(int argc, char* argv[]) {
     program_name = argv[0];
@@ -38,11 +45,11 @@ int main(int argc, char* argv[]) {
     try_open_file(&output, output_path, "w");
    
     work(input1, input2, output);
-
-    fclose(input1);
-    fclose(input2);
-    fclose(output);
-
+    
+    close(input1);
+    close(input2);
+    close(output);
+    
     return EXIT_SUCCESS;
 }
 
@@ -82,7 +89,7 @@ static void print_error_and_exit(const char *message) {
 }
 
 static void print_usage_error_and_exit(const char *message) {
-    fprintf(stderr, "%s: %s - USAGE: %s [-i] [-o output.txt] input1.txt input2.txt\n",
+    fprintf(stdout, "%s: %s - USAGE: %s [-i] [-o output.txt] input1.txt input2.txt\n",
             program_name, message, program_name);
     exit(EXIT_FAILURE);
 }
@@ -97,40 +104,59 @@ static void try_open_file(FILE **file, const char *file_path, char *mode) {
     }
 }
 
+static void close(FILE *file) {
+    if (file != NULL) {
+        fclose(file);
+    }
+}
+
 static void work(FILE *input1, FILE *input2, FILE *output) {
     int line = 1;
-    int character = 1;
     
     char c1 = fgetc(input1);
     char c2 = fgetc(input2);
     
     while (c1 != EOF || c2 != EOF) {
-        character = 1;
+        int num_diff_char = 0;
+        
         while (is_eof_or_newline(c1, c2) == 0) {
             if (case_insensitive) {
                 if (tolower(c1) != tolower(c2)) {
-                    print_diff(line, character, output);
-                    break;
+                    num_diff_char++;
                 }
             } else {
                 if (c1 != c2) {
-                    print_diff(line, character, output);
-                    break;
+                    num_diff_char++;
                 }
             }
+            
             c1 = fgetc(input1);
             c2 = fgetc(input2);
-            character++;
         }
+
+        if (num_diff_char > 0) print_diff(line, num_diff_char, output);
+        
+        if (is_c_eof_or_newline(c1) == 1) {
+            c1 = fgetc(input1);
+        } else {
+            c1 = skip_to_next_char(input1);
+        }
+
+        if (is_c_eof_or_newline(c2) == 1) {
+            c2 = fgetc(input2);
+        } else {
+            c2 = skip_to_next_char(input2);
+        }
+        
         line++;
     }
 }
 
 static void print_diff(int lin, int chr, FILE *output) {
     if (write_output) {
-        fprintf(output, "Line: %d, characters: %d", lin, chr);
+        fprintf(output, "Line: %d, characters: %d\n", lin, chr);
     } else {
-        printf("Line: %d, characters: %d\n", lin, chr);
+        fprintf(stdout, "Line: %d, characters: %d\n", lin, chr);
     }
 }
 
@@ -140,4 +166,20 @@ static int is_eof_or_newline(char c1, char c2) {
     if (c2 == '\n') return 1;
     if (c2 == EOF) return 1;
     return 0;
+}
+
+static int is_c_eof_or_newline(char c) {
+    if (c == '\n') return 1;
+    if (c == EOF) return 1;
+
+    return 0;
+}
+
+static char skip_to_next_char(FILE *file) {
+    char c = fgetc(file);
+
+    while (is_c_eof_or_newline(c) == 0) {
+        c = fgetc(file);
+    }
+    return fgetc(file);
 }
